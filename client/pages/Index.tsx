@@ -69,11 +69,17 @@ export default function Index() {
     setError(null);
 
     try {
-      // Read file as base64
-      const arrayBuffer = await selectedFileRef.current.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      const binaryString = String.fromCharCode(...uint8Array);
-      const base64 = btoa(binaryString);
+      // Read file as base64 using FileReader
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          const base64String = result.split(',')[1]; // Extract base64 part from data URL
+          resolve(base64String);
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(selectedFileRef.current!);
+      });
 
       // Send to server
       const response = await fetch("/api/extract", {
