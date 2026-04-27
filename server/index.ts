@@ -9,8 +9,8 @@ export function createServer() {
 
   // Middleware
   app.use(cors());
-  app.use(express.json({ limit: "51mb" })); // Support up to 50MB files
-  app.use(express.urlencoded({ extended: true, limit: "51mb" }));
+  app.use(express.json({ limit: "600mb" })); // Support up to 500MB files (accounting for base64 encoding overhead)
+  app.use(express.urlencoded({ extended: true, limit: "600mb" }));
 
   // Example API routes
   app.get("/api/ping", (_req, res) => {
