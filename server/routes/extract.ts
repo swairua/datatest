@@ -20,6 +20,7 @@ interface ExtractionResponse {
   fileName: string;
   tables: TableInfo[];
   message?: string;
+  extractionMethod?: "gbak" | "firebird-library" | "fallback";
 }
 
 const extractionRequestSchema = z.object({
@@ -71,23 +72,23 @@ export const handleExtraction: RequestHandler = async (req, res) => {
     writeFileSync(tempBackupPath, binaryBuffer);
 
     // Try to restore the backup using Firebird's gbak utility
-    const extractedData = await extractTablesFromBackup(
+    const result = await extractTablesFromBackup(
       tempBackupPath,
       tempDbPath,
       fileName
     );
 
-    if (extractedData) {
+    if (result.data) {
       // Store extracted data and get session ID
       const sessionId = generateSessionId();
-      storeExtractedData(sessionId, fileName, extractedData);
+      storeExtractedData(sessionId, fileName, result.data);
 
       // Get table metadata for response
-      const tables: TableInfo[] = Object.keys(extractedData).map((tableName) => ({
+      const tables: TableInfo[] = Object.keys(result.data).map((tableName) => ({
         name: tableName,
-        rowCount: extractedData[tableName].length,
-        columns: extractedData[tableName].length > 0
-          ? Object.keys(extractedData[tableName][0])
+        rowCount: result.data[tableName].length,
+        columns: result.data[tableName].length > 0
+          ? Object.keys(result.data[tableName][0])
           : [],
       }));
 
@@ -96,6 +97,8 @@ export const handleExtraction: RequestHandler = async (req, res) => {
         fileName,
         tables,
         sessionId,
+        extractionMethod: result.method,
+        message: result.message,
       };
 
       res.json(response);
@@ -143,27 +146,57 @@ async function extractTablesFromBackup(
   backupPath: string,
   dbPath: string,
   fileName: string
-): Promise<{ [tableName: string]: Record<string, any>[] } | null> {
+): Promise<{
+  data: { [tableName: string]: Record<string, any>[] } | null;
+  method: "gbak" | "firebird-library" | "fallback";
+  message?: string;
+}> {
   try {
     // Try approach 1: Use Firebird gbak utility if available
+    console.log("[Extract] Attempting gbak restore...");
     const gbakResult = tryGbakRestore(backupPath, dbPath);
     if (gbakResult) {
-      return queryFirebirdDatabase(dbPath);
+      console.log("[Extract] gbak restore successful");
+      const data = queryFirebirdDatabase(dbPath);
+      if (data) {
+        return {
+          data,
+          method: "gbak",
+          message: "Extracted using Firebird gbak utility",
+        };
+      }
     }
 
     // Try approach 2: Use Node.js Firebird library if available
     try {
+      console.log("[Extract] Attempting Firebird library extraction...");
       const fdb = require("node-firebird");
-      return await extractUsingFirebirdLibrary(backupPath, dbPath, fdb);
+      const data = await extractUsingFirebirdLibrary(backupPath, dbPath, fdb);
+      return {
+        data,
+        method: "firebird-library",
+        message: "Extracted using Firebird library",
+      };
     } catch (e) {
+      console.log("[Extract] Firebird library not available", e);
       // Library not available, continue to fallback
     }
 
     // Fallback: Create realistic data structure based on file analysis
-    return generateStudentDataFromFile(fileName);
+    console.log("[Extract] Using fallback data generation");
+    return {
+      data: generateStudentDataFromFile(fileName),
+      method: "fallback",
+      message:
+        "Using fallback data structure. Install Firebird or use gbak utility for actual extraction.",
+    };
   } catch (error) {
-    console.error("Backup extraction error:", error);
-    return null;
+    console.error("[Extract] Backup extraction error:", error);
+    return {
+      data: generateStudentDataFromFile(fileName),
+      method: "fallback",
+      message: `Extraction error: ${error instanceof Error ? error.message : "Unknown error"}. Using fallback data.`,
+    };
   }
 }
 
@@ -181,9 +214,25 @@ function tryGbakRestore(backupPath: string, dbPath: string): boolean {
       "masterkey",
     ]);
 
-    return result.status === 0 && result.error === undefined;
+    if (result.error) {
+      console.log("[gbak] Command not found or error:", result.error.message);
+      return false;
+    }
+
+    if (result.status !== 0) {
+      const stderr = result.stderr?.toString() || "Unknown error";
+      const stdout = result.stdout?.toString() || "";
+      console.log("[gbak] Restore failed. Status:", result.status);
+      console.log("[gbak] stderr:", stderr);
+      console.log("[gbak] stdout:", stdout);
+      return false;
+    }
+
+    console.log("[gbak] Restore completed successfully");
+    return true;
   } catch (error) {
     // gbak command not available
+    console.log("[gbak] Exception:", error instanceof Error ? error.message : error);
     return false;
   }
 }

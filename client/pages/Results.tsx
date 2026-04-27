@@ -12,6 +12,8 @@ interface LocationState {
   fileName: string;
   tables: TableInfo[];
   sessionId: string;
+  extractionMethod?: "gbak" | "firebird-library" | "fallback";
+  message?: string;
 }
 
 export default function Results() {
@@ -186,24 +188,57 @@ export default function Results() {
         {!viewingTable && (
           <>
             {/* Extraction Summary */}
-            <div className="mb-8 p-6 rounded-xl border border-green-200 dark:border-green-800 bg-gradient-to-r from-green-50 to-transparent dark:from-green-900/20 dark:to-transparent">
+            <div
+              className={`mb-8 p-6 rounded-xl border transition-all ${
+                state.extractionMethod === "fallback"
+                  ? "border-amber-200 dark:border-amber-800 bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-900/20 dark:to-transparent"
+                  : "border-green-200 dark:border-green-800 bg-gradient-to-r from-green-50 to-transparent dark:from-green-900/20 dark:to-transparent"
+              }`}
+            >
               <div className="flex items-start gap-4">
                 <div className="flex-1">
-                  <h2 className="text-lg font-semibold text-foreground mb-1">
-                    Extraction Complete
-                  </h2>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h2 className="text-lg font-semibold text-foreground">
+                      {state.extractionMethod === "fallback"
+                        ? "Extraction Using Fallback Data"
+                        : "Extraction Complete"}
+                    </h2>
+                    {state.extractionMethod === "gbak" && (
+                      <span className="px-2 py-1 rounded-full bg-green-200 dark:bg-green-900 text-xs font-semibold text-green-900 dark:text-green-200">
+                        Firebird gbak
+                      </span>
+                    )}
+                    {state.extractionMethod === "firebird-library" && (
+                      <span className="px-2 py-1 rounded-full bg-green-200 dark:bg-green-900 text-xs font-semibold text-green-900 dark:text-green-200">
+                        Firebird Library
+                      </span>
+                    )}
+                    {state.extractionMethod === "fallback" && (
+                      <span className="px-2 py-1 rounded-full bg-amber-200 dark:bg-amber-900 text-xs font-semibold text-amber-900 dark:text-amber-200">
+                        Fallback Mode
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground mb-3">
-                    Successfully extracted {result.tables.length} table{result.tables.length !== 1 ? 's' : ''} from <span className="font-mono text-foreground">{result.fileName}</span>
+                    {state.extractionMethod === "fallback"
+                      ? "Unable to directly extract from the backup file. Using standard database structure as template."
+                      : `Successfully extracted ${result.tables.length} table${result.tables.length !== 1 ? 's' : ''} from `}{" "}
+                    <span className="font-mono text-foreground">{result.fileName}</span>
                   </p>
+                  {state.message && (
+                    <p className="text-xs text-muted-foreground mb-3 italic">
+                      {state.message}
+                    </p>
+                  )}
                   <div className="flex flex-wrap gap-3 text-xs">
                     <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 rounded-full bg-primary"></div>
+                      <div className={`w-2 h-2 rounded-full ${state.extractionMethod === "fallback" ? "bg-amber-500" : "bg-primary"}`}></div>
                       <span className="text-muted-foreground">
                         {result.tables.reduce((sum, t) => sum + t.rowCount, 0).toLocaleString()} total rows
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 rounded-full bg-primary"></div>
+                      <div className={`w-2 h-2 rounded-full ${state.extractionMethod === "fallback" ? "bg-amber-500" : "bg-primary"}`}></div>
                       <span className="text-muted-foreground">
                         {result.tables.reduce((sum, t) => sum + t.columns.length, 0)} columns
                       </span>

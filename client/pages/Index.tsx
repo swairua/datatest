@@ -120,6 +120,8 @@ export default function Index() {
           fileName: selectedFileRef.current.name,
           tables: data.tables,
           sessionId: data.sessionId,
+          extractionMethod: data.extractionMethod,
+          message: data.message,
         },
       });
     } catch (err) {
