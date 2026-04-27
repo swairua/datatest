@@ -1,10 +1,12 @@
 import { RequestHandler } from "express";
 import { z } from "zod";
+import { getExtractedData } from "../utils/data-store";
 
 const downloadRequestSchema = z.object({
   fileName: z.string(),
   tables: z.array(z.string()),
   format: z.enum(["csv", "json"]),
+  sessionId: z.string().optional(),
 });
 
 interface MockTableData {
