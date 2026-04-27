@@ -98,10 +98,14 @@ export default function Index() {
         throw new Error(data.message || "Failed to process file");
       }
 
-      // Navigate to results page
+      const data = await response.json();
+
+      // Navigate to results page with extraction data
       navigate("/results", {
         state: {
           fileName: selectedFileRef.current.name,
+          tables: data.tables,
+          sessionId: data.sessionId,
         },
       });
     } catch (err) {

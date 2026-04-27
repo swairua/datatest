@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Download, ChevronLeft, Table2, Eye, FileJson, FileText, Loader } from "lucide-react";
 
 interface TableInfo {
@@ -8,40 +8,38 @@ interface TableInfo {
   columns: string[];
 }
 
-interface ExtractionResult {
+interface LocationState {
   fileName: string;
   tables: TableInfo[];
-  status: "processing" | "completed" | "error";
-  message?: string;
+  sessionId: string;
 }
 
 export default function Results() {
-  // Mock data - in production this would come from props or state management
-  const result: ExtractionResult = {
-    fileName: "business_database.fdb",
-    status: "completed",
-    tables: [
-      {
-        name: "CUSTOMERS",
-        rowCount: 1250,
-        columns: ["ID", "NAME", "EMAIL", "PHONE", "CREATED_AT"],
-      },
-      {
-        name: "ORDERS",
-        rowCount: 5840,
-        columns: ["ID", "CUSTOMER_ID", "ORDER_DATE", "TOTAL_AMOUNT", "STATUS"],
-      },
-      {
-        name: "PRODUCTS",
-        rowCount: 342,
-        columns: ["ID", "NAME", "SKU", "PRICE", "STOCK_QUANTITY"],
-      },
-      {
-        name: "INVOICES",
-        rowCount: 3210,
-        columns: ["ID", "ORDER_ID", "INVOICE_DATE", "AMOUNT", "PAID"],
-      },
-    ],
+  const location = useLocation();
+  const state = location.state as LocationState;
+
+  // Fallback to home if no extraction data
+  if (!state || !state.sessionId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-4">No extraction data found</h1>
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Back to Upload
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const result = {
+    fileName: state.fileName,
+    tables: state.tables,
+    status: "completed" as const,
   };
 
   // Auto-select all tables by default
@@ -84,11 +82,13 @@ export default function Results() {
           fileName: result.fileName,
           tables: tableNames,
           format: exportFormat,
+          sessionId: state.sessionId,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to download file");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to download file");
       }
 
       // Get the blob and create download link
@@ -103,7 +103,7 @@ export default function Results() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Download error:", error);
-      alert("Failed to download file. Please try again.");
+      alert(error instanceof Error ? error.message : "Failed to download file. Please try again.");
     } finally {
       setIsDownloading(false);
     }
