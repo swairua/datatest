@@ -16,11 +16,6 @@ interface ExtractionResult {
 }
 
 export default function Results() {
-  const [selectedTables, setSelectedTables] = useState<Set<string>>(new Set());
-  const [exportFormat, setExportFormat] = useState<"csv" | "json">("csv");
-  const [viewingTable, setViewingTable] = useState<string | null>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
-
   // Mock data - in production this would come from props or state management
   const result: ExtractionResult = {
     fileName: "business_database.fdb",
@@ -48,6 +43,14 @@ export default function Results() {
       },
     ],
   };
+
+  // Auto-select all tables by default
+  const [selectedTables, setSelectedTables] = useState<Set<string>>(
+    new Set(result.tables.map((t) => t.name))
+  );
+  const [exportFormat, setExportFormat] = useState<"csv" | "json">("csv");
+  const [viewingTable, setViewingTable] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const toggleTableSelection = (tableName: string) => {
     const newSelected = new Set(selectedTables);
