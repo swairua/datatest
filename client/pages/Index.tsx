@@ -44,7 +44,7 @@ export default function Index() {
   const handleFileSelection = async (file: File) => {
     setError(null);
 
-    if (!file.name.endsWith(".SHULEPROBACKUP")) {
+    if (!file.name.toLowerCase().endsWith(".shuleprobackup")) {
       setError("Please select a SHULEPROBACKUP backup file");
       return;
     }
