@@ -18,33 +18,37 @@ interface ExtractionResponse {
 }
 
 const extractionRequestSchema = z.object({
-  fileName: z.string().endsWith(".fdb"),
+  fileName: z.string().refine(
+    (name) => name.toLowerCase().endsWith(".shuleprobackup"),
+    "File must be a SHULEPROBACKUP file"
+  ),
   fileBuffer: z.string(), // Base64 encoded file content
 });
 
 /**
- * Extract tables from a Firebird 2.5 database file
- * 
+ * Extract tables from a SHULEPROBACKUP backup file
+ *
  * In production, this would:
- * 1. Save the uploaded file temporarily
- * 2. Use the Firebird embedded library (fbembed.dll/libfbembed.so)
- * 3. Connect with SYSDBA/masterkey credentials
- * 4. Query RDB$RELATIONS for table information
- * 5. Count rows and get column info
- * 6. Return the results
+ * 1. Save the uploaded SHULEPROBACKUP file temporarily
+ * 2. Restore it using Firebird's gbak utility
+ * 3. Use the Firebird embedded library (fbembed.dll/libfbembed.so)
+ * 4. Connect with SYSDBA/masterkey credentials
+ * 5. Query RDB$RELATIONS for table information
+ * 6. Count rows and get column info
+ * 7. Return the results
  */
 export const handleExtraction: RequestHandler = async (req, res) => {
   try {
     const { fileName, fileBuffer } = extractionRequestSchema.parse(req.body);
 
-    // Validate file size (50MB limit)
+    // Validate file size (500MB limit)
     const bufferSize = Buffer.byteLength(fileBuffer, "base64");
-    if (bufferSize > 50 * 1024 * 1024) {
+    if (bufferSize > 500 * 1024 * 1024) {
       return res.status(400).json({
         success: false,
         fileName,
         tables: [],
-        message: "File size exceeds 50MB limit",
+        message: "File size exceeds 500MB limit",
       } as ExtractionResponse);
     }
 
@@ -98,20 +102,21 @@ export const handleExtraction: RequestHandler = async (req, res) => {
 };
 
 /**
- * Placeholder for actual Firebird extraction
- * This would be implemented when Firebird embedded library is available
+ * Placeholder for actual SHULEPROBACKUP restoration and extraction
+ * This would be implemented when Firebird gbak utility and embedded library are available
  */
-// async function extractTablesFromFirebird(
+// async function extractTablesFromSHULEPROBACKUP(
 //   fileBuffer: Buffer
 // ): Promise<TableInfo[]> {
-//   // 1. Write buffer to temporary file
-//   // 2. Connect using embedded driver: fdb.connect({
-//   //      dsn: tempFilePath,
+//   // 1. Write buffer to temporary .gbk backup file
+//   // 2. Use gbak to restore: gbak -c tempBackupFile tempDatabaseFile
+//   // 3. Connect using embedded driver: fdb.connect({
+//   //      dsn: tempDatabaseFile,
 //   //      user: 'SYSDBA',
 //   //      password: 'masterkey',
 //   //      fb_library_name: fbembedPath
 //   //    })
-//   // 3. Query RDB$RELATIONS system table for all user tables
-//   // 4. For each table, COUNT(*) and query RDB$RELATION_FIELDS
-//   // 5. Return structured table info
+//   // 4. Query RDB$RELATIONS system table for all user tables
+//   // 5. For each table, COUNT(*) and query RDB$RELATION_FIELDS
+//   // 6. Return structured table info
 // }
