@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, ChevronLeft, Table2, Eye, FileJson, FileText } from "lucide-react";
+import { Download, ChevronLeft, Table2, Eye, FileJson, FileText, Loader } from "lucide-react";
 
 interface TableInfo {
   name: string;
@@ -16,10 +16,6 @@ interface ExtractionResult {
 }
 
 export default function Results() {
-  const [selectedTables, setSelectedTables] = useState<Set<string>>(new Set());
-  const [exportFormat, setExportFormat] = useState<"csv" | "json">("csv");
-  const [viewingTable, setViewingTable] = useState<string | null>(null);
-
   // Mock data - in production this would come from props or state management
   const result: ExtractionResult = {
     fileName: "business_database.fdb",
@@ -48,6 +44,14 @@ export default function Results() {
     ],
   };
 
+  // Auto-select all tables by default
+  const [selectedTables, setSelectedTables] = useState<Set<string>>(
+    new Set(result.tables.map((t) => t.name))
+  );
+  const [exportFormat, setExportFormat] = useState<"csv" | "json">("csv");
+  const [viewingTable, setViewingTable] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+
   const toggleTableSelection = (tableName: string) => {
     const newSelected = new Set(selectedTables);
     if (newSelected.has(tableName)) {
@@ -66,9 +70,43 @@ export default function Results() {
     }
   };
 
-  const handleDownload = () => {
-    // TODO: Implement download logic
-    console.log(`Downloading ${selectedTables.size} tables as ${exportFormat}`);
+  const handleDownload = async () => {
+    try {
+      setIsDownloading(true);
+      const tableNames = Array.from(selectedTables);
+
+      const response = await fetch("/api/download", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fileName: result.fileName,
+          tables: tableNames,
+          format: exportFormat,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to download file");
+      }
+
+      // Get the blob and create download link
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `export_${new Date().toISOString().split("T")[0]}.${exportFormat}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Download error:", error);
+      alert("Failed to download file. Please try again.");
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const currentTable = result.tables.find((t) => t.name === viewingTable);
@@ -190,11 +228,20 @@ export default function Results() {
 
                 <button
                   onClick={handleDownload}
-                  disabled={selectedTables.size === 0}
+                  disabled={selectedTables.size === 0 || isDownloading}
                   className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                 >
-                  <Download className="w-4 h-4" />
-                  Download {selectedTables.size > 0 ? `(${selectedTables.size})` : ""}
+                  {isDownloading ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin" />
+                      Preparing...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4" />
+                      Download {selectedTables.size > 0 ? `(${selectedTables.size})` : ""}
+                    </>
+                  )}
                 </button>
               </div>
             </div>
