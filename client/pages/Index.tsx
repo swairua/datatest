@@ -49,8 +49,8 @@ export default function Index() {
       return;
     }
 
-    if (file.size > 50 * 1024 * 1024) {
-      setError("File size exceeds 50MB limit");
+    if (file.size > 500 * 1024 * 1024) {
+      setError("File size exceeds 500MB limit");
       return;
     }
 
@@ -215,7 +215,7 @@ export default function Index() {
               )}
 
               <p className="text-xs text-muted-foreground mt-4">
-                Supports SHULEPROBACKUP files (up to 50MB)
+                Supports SHULEPROBACKUP files (up to 500MB)
               </p>
             </div>
           </div>
