@@ -44,8 +44,8 @@ export default function Index() {
   const handleFileSelection = async (file: File) => {
     setError(null);
 
-    if (!file.name.endsWith(".fdb")) {
-      setError("Please select a Firebird database file (.fdb)");
+    if (!file.name.endsWith(".SHULEPROBACKUP")) {
+      setError("Please select a SHULEPROBACKUP backup file");
       return;
     }
 
@@ -123,11 +123,11 @@ export default function Index() {
         <div className="mb-16 animate-fade-in">
           <div className="text-center mb-12">
             <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-6">
-              Convert Firebird Databases
+              Convert Database Backups
               <span className="block text-primary mt-2">to Modern Formats</span>
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Upload your Firebird 2.5 database files and extract tables to CSV or JSON.
+              Upload your SHULEPROBACKUP backup files and extract tables to CSV or JSON.
               Powered by embedded Firebird runtime with zero external dependencies.
             </p>
           </div>
@@ -158,7 +158,7 @@ export default function Index() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".fdb"
+              accept=".SHULEPROBACKUP"
               onChange={handleFileSelect}
               className="hidden"
             />
@@ -206,7 +206,7 @@ export default function Index() {
               ) : (
                 <div className="text-center">
                   <p className="text-lg font-semibold text-foreground">
-                    {isDragging ? "Drop your file here" : "Drag and drop your .fdb file"}
+                    {isDragging ? "Drop your file here" : "Drag and drop your SHULEPROBACKUP file"}
                   </p>
                   <p className="text-sm text-muted-foreground mt-2">
                     or click to browse
@@ -215,7 +215,7 @@ export default function Index() {
               )}
 
               <p className="text-xs text-muted-foreground mt-4">
-                Supports Firebird 2.5 ODS 11.2 format (up to 50MB)
+                Supports SHULEPROBACKUP files (up to 50MB)
               </p>
             </div>
           </div>
@@ -267,15 +267,15 @@ export default function Index() {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                  Firebird 2.5 Database (ODS 11.2)
+                  SHULEPROBACKUP backup file format
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                  Previously fixed with nbackup -F (fixup)
+                  Firebird 2.5 compatible backup
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                  Physically consistent and ready for connection
+                  Physically consistent and ready for restoration
                 </li>
               </ul>
             </div>
