@@ -7,6 +7,7 @@ export default function Index() {
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [extractionProgress, setExtractionProgress] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedFileRef = useRef<File | null>(null);
@@ -66,10 +67,12 @@ export default function Index() {
     if (!selectedFileRef.current) return;
 
     setIsLoading(true);
+    setExtractionProgress("");
     setError(null);
 
     try {
-      // Read file as base64 using FileReader
+      // Step 1: Read file
+      setExtractionProgress("Reading backup file...");
       const reader = new FileReader();
       const base64 = await new Promise<string>((resolve, reject) => {
         reader.onload = () => {
@@ -81,7 +84,8 @@ export default function Index() {
         reader.readAsDataURL(selectedFileRef.current!);
       });
 
-      // Send to server
+      // Step 2: Upload and extract
+      setExtractionProgress("Extracting tables from backup...");
       const response = await fetch("/api/extract", {
         method: "POST",
         headers: {
@@ -98,15 +102,32 @@ export default function Index() {
         throw new Error(data.message || "Failed to process file");
       }
 
-      // Navigate to results page
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.message || "Extraction failed");
+      }
+
+      // Step 3: Processing complete
+      setExtractionProgress(`Found ${data.tables.length} tables`);
+
+      // Brief pause to show completion message
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Navigate to results page with extraction data
       navigate("/results", {
         state: {
           fileName: selectedFileRef.current.name,
+          tables: data.tables,
+          sessionId: data.sessionId,
+          extractionMethod: data.extractionMethod,
+          message: data.message,
         },
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       setIsLoading(false);
+      setExtractionProgress("");
     }
   };
 
@@ -181,7 +202,16 @@ export default function Index() {
               {fileName ? (
                 <div className="text-center">
                   <p className="text-lg font-semibold text-foreground">{fileName}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Ready to process</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {isLoading && extractionProgress ? extractionProgress : "Ready to process"}
+                  </p>
+                  {isLoading && (
+                    <div className="mt-4 max-w-xs mx-auto">
+                      <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                        <div className="bg-primary h-2 rounded-full animate-pulse" style={{ width: "60%" }}></div>
+                      </div>
+                    </div>
+                  )}
                   <button
                     onClick={handleProcessFile}
                     disabled={isLoading}
@@ -190,7 +220,7 @@ export default function Index() {
                     {isLoading ? (
                       <>
                         <Loader className="w-4 h-4 animate-spin" />
-                        Processing...
+                        {extractionProgress || "Processing..."}
                       </>
                     ) : (
                       <>
@@ -204,6 +234,7 @@ export default function Index() {
                       setFileName(null);
                       selectedFileRef.current = null;
                       setError(null);
+                      setExtractionProgress("");
                     }}
                     disabled={isLoading}
                     className="mt-2 text-sm text-primary hover:text-primary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

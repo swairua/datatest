@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Download, ChevronLeft, Table2, Eye, FileJson, FileText, Loader } from "lucide-react";
 
 interface TableInfo {
@@ -8,40 +8,40 @@ interface TableInfo {
   columns: string[];
 }
 
-interface ExtractionResult {
+interface LocationState {
   fileName: string;
   tables: TableInfo[];
-  status: "processing" | "completed" | "error";
+  sessionId: string;
+  extractionMethod?: "gbak" | "firebird-library" | "fallback";
   message?: string;
 }
 
 export default function Results() {
-  // Mock data - in production this would come from props or state management
-  const result: ExtractionResult = {
-    fileName: "business_database.fdb",
-    status: "completed",
-    tables: [
-      {
-        name: "CUSTOMERS",
-        rowCount: 1250,
-        columns: ["ID", "NAME", "EMAIL", "PHONE", "CREATED_AT"],
-      },
-      {
-        name: "ORDERS",
-        rowCount: 5840,
-        columns: ["ID", "CUSTOMER_ID", "ORDER_DATE", "TOTAL_AMOUNT", "STATUS"],
-      },
-      {
-        name: "PRODUCTS",
-        rowCount: 342,
-        columns: ["ID", "NAME", "SKU", "PRICE", "STOCK_QUANTITY"],
-      },
-      {
-        name: "INVOICES",
-        rowCount: 3210,
-        columns: ["ID", "ORDER_ID", "INVOICE_DATE", "AMOUNT", "PAID"],
-      },
-    ],
+  const location = useLocation();
+  const state = location.state as LocationState;
+
+  // Fallback to home if no extraction data
+  if (!state || !state.sessionId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-4">No extraction data found</h1>
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Back to Upload
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const result = {
+    fileName: state.fileName,
+    tables: state.tables,
+    status: "completed" as const,
   };
 
   // Auto-select all tables by default
@@ -84,11 +84,13 @@ export default function Results() {
           fileName: result.fileName,
           tables: tableNames,
           format: exportFormat,
+          sessionId: state.sessionId,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to download file");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to download file");
       }
 
       // Get the blob and create download link
@@ -103,7 +105,7 @@ export default function Results() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Download error:", error);
-      alert("Failed to download file. Please try again.");
+      alert(error instanceof Error ? error.message : "Failed to download file. Please try again.");
     } finally {
       setIsDownloading(false);
     }
@@ -143,7 +145,7 @@ export default function Results() {
             </button>
 
             <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden">
-              <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+              <div className="p-6 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-primary/10 to-transparent">
                 <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
                   <Table2 className="w-5 h-5 text-primary" />
                   {currentTable.name}
@@ -154,44 +156,29 @@ export default function Results() {
                 </p>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                      {currentTable.columns.map((col) => (
-                        <th
-                          key={col}
-                          className="px-6 py-3 text-left font-semibold text-foreground"
-                        >
-                          {col}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[1, 2, 3, 4, 5].map((row) => (
-                      <tr
-                        key={row}
-                        className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50"
-                      >
-                        {currentTable.columns.map((col) => (
-                          <td
-                            key={`${row}-${col}`}
-                            className="px-6 py-3 text-muted-foreground"
-                          >
-                            {col === "ID"
-                              ? row
-                              : `${col.toLowerCase()}_value_${row}`}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+                <h3 className="text-sm font-semibold text-foreground mb-3">Column Structure</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {currentTable.columns.map((col) => (
+                    <div
+                      key={col}
+                      className="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
+                    >
+                      <div className="text-xs font-mono text-primary font-semibold">
+                        {col}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs text-muted-foreground text-center">
-                Showing 5 sample rows. Full data will be included in export.
+              <div className="p-4 text-center bg-slate-50 dark:bg-slate-900 text-sm text-muted-foreground">
+                <div className="flex items-center justify-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    <span>{currentTable.rowCount.toLocaleString()} rows ready for export</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -200,11 +187,72 @@ export default function Results() {
         {/* Selection View */}
         {!viewingTable && (
           <>
+            {/* Extraction Summary */}
+            <div
+              className={`mb-8 p-6 rounded-xl border transition-all ${
+                state.extractionMethod === "fallback"
+                  ? "border-amber-200 dark:border-amber-800 bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-900/20 dark:to-transparent"
+                  : "border-green-200 dark:border-green-800 bg-gradient-to-r from-green-50 to-transparent dark:from-green-900/20 dark:to-transparent"
+              }`}
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h2 className="text-lg font-semibold text-foreground">
+                      {state.extractionMethod === "fallback"
+                        ? "Extraction Using Fallback Data"
+                        : "Extraction Complete"}
+                    </h2>
+                    {state.extractionMethod === "gbak" && (
+                      <span className="px-2 py-1 rounded-full bg-green-200 dark:bg-green-900 text-xs font-semibold text-green-900 dark:text-green-200">
+                        Firebird gbak
+                      </span>
+                    )}
+                    {state.extractionMethod === "firebird-library" && (
+                      <span className="px-2 py-1 rounded-full bg-green-200 dark:bg-green-900 text-xs font-semibold text-green-900 dark:text-green-200">
+                        Firebird Library
+                      </span>
+                    )}
+                    {state.extractionMethod === "fallback" && (
+                      <span className="px-2 py-1 rounded-full bg-amber-200 dark:bg-amber-900 text-xs font-semibold text-amber-900 dark:text-amber-200">
+                        Fallback Mode
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {state.extractionMethod === "fallback"
+                      ? "Unable to directly extract from the backup file. Using standard database structure as template."
+                      : `Successfully extracted ${result.tables.length} table${result.tables.length !== 1 ? 's' : ''} from `}{" "}
+                    <span className="font-mono text-foreground">{result.fileName}</span>
+                  </p>
+                  {state.message && (
+                    <p className="text-xs text-muted-foreground mb-3 italic">
+                      {state.message}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-3 text-xs">
+                    <div className="flex items-center gap-1">
+                      <div className={`w-2 h-2 rounded-full ${state.extractionMethod === "fallback" ? "bg-amber-500" : "bg-primary"}`}></div>
+                      <span className="text-muted-foreground">
+                        {result.tables.reduce((sum, t) => sum + t.rowCount, 0).toLocaleString()} total rows
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className={`w-2 h-2 rounded-full ${state.extractionMethod === "fallback" ? "bg-amber-500" : "bg-primary"}`}></div>
+                      <span className="text-muted-foreground">
+                        {result.tables.reduce((sum, t) => sum + t.columns.length, 0)} columns
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Controls */}
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-8 animate-fade-in">
               <div>
                 <h2 className="text-xl font-semibold text-foreground mb-2">
-                  Select Tables to Extract
+                  Select Tables to Download
                 </h2>
                 <p className="text-sm text-muted-foreground">
                   {selectedTables.size} of {result.tables.length} tables selected
@@ -278,7 +326,7 @@ export default function Results() {
                     className={`rounded-lg border transition-all cursor-pointer group ${
                       isSelected
                         ? "border-primary bg-primary/5"
-                        : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-primary/50"
+                        : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-primary/50 hover:shadow-md"
                     }`}
                   >
                     <div className="p-6">
@@ -291,36 +339,52 @@ export default function Results() {
                             className="w-5 h-5 rounded border-slate-300 text-primary cursor-pointer mt-1"
                           />
                           <div>
-                            <h3 className="font-semibold text-foreground text-lg">
-                              {table.name}
-                            </h3>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {table.rowCount.toLocaleString()} rows
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <Table2 className="w-4 h-4 text-primary" />
+                              <h3 className="font-semibold text-foreground text-lg">
+                                {table.name}
+                              </h3>
+                            </div>
+                            <div className="flex items-center gap-3 mt-2 text-sm">
+                              <span className="text-muted-foreground">
+                                <span className="font-semibold text-foreground">{table.rowCount.toLocaleString()}</span> rows
+                              </span>
+                              <span className="text-muted-foreground">•</span>
+                              <span className="text-muted-foreground">
+                                <span className="font-semibold text-foreground">{table.columns.length}</span> columns
+                              </span>
+                            </div>
                           </div>
                         </div>
                         <button
                           onClick={() => setViewingTable(table.name)}
-                          className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Preview table"
+                          className="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-primary hover:text-primary-foreground opacity-0 group-hover:opacity-100 transition-all"
+                          title="Preview table structure"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                       </div>
 
-                      <div className="space-y-2">
-                        <p className="text-xs text-muted-foreground font-semibold">
-                          COLUMNS ({table.columns.length})
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {table.columns.map((col) => (
-                            <span
-                              key={col}
-                              className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-xs text-muted-foreground font-mono"
-                            >
-                              {col}
-                            </span>
-                          ))}
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">
+                            Columns ({table.columns.length})
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {table.columns.slice(0, 6).map((col) => (
+                              <span
+                                key={col}
+                                className="px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-700 text-xs text-foreground font-mono border border-slate-200 dark:border-slate-600"
+                              >
+                                {col}
+                              </span>
+                            ))}
+                            {table.columns.length > 6 && (
+                              <span className="px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-700 text-xs text-muted-foreground font-mono">
+                                +{table.columns.length - 6} more
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
