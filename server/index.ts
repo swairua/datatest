@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import { handleDemo } from "./routes/demo";
 import { handleExtraction } from "./routes/extract";
+import { handleDownload } from "./routes/download";
 
 export function createServer() {
   const app = express();
@@ -22,6 +23,9 @@ export function createServer() {
 
   // Database extraction endpoint
   app.post("/api/extract", handleExtraction);
+
+  // File download endpoint
+  app.post("/api/download", handleDownload);
 
   return app;
 }
