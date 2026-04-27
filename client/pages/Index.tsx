@@ -71,7 +71,9 @@ export default function Index() {
     try {
       // Read file as base64
       const arrayBuffer = await selectedFileRef.current.arrayBuffer();
-      const base64 = Buffer.from(arrayBuffer).toString("base64");
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const binaryString = String.fromCharCode(...uint8Array);
+      const base64 = btoa(binaryString);
 
       // Send to server
       const response = await fetch("/api/extract", {
